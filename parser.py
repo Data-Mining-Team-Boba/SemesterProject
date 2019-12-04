@@ -6,7 +6,7 @@ start = time.time()
 
 games = []
 
-pgn = open("lichess_db_standard_rated_2013-01.pgn")
+pgn = open("example.pgn")
 while True:
     line = pgn.readline().strip()
     if line == '':
@@ -21,7 +21,13 @@ while True:
     games.append(state)
 
 end = time.time()
-print("Time to parse file: ", end - start)
+print("Time to parse:", end - start, "seconds")
 
+print("Uploading to Mongo...")
 client = MongoClient("mongodb://34.70.135.10:27017")
+db = client["games"]
+col = db.col
+d = { "game": games }
+col.insert_one(d)
 client.close()
+print("Finished")
