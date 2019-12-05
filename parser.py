@@ -13,11 +13,8 @@ while True:
         break
     state = []
     game = chess.pgn.read_game(pgn)
-    board = game.board()
-    state.append(board.copy())
-    for move in game.mainline_moves():
-        board.push(move)
-        state.append(board.copy())
+    board = game.board().fen()
+    state.append(board)
     games.append(state)
 
 end = time.time()
@@ -27,7 +24,10 @@ print("Uploading to Mongo...")
 client = MongoClient("mongodb://34.70.135.10:27017")
 db = client["games"]
 col = db.col
-d = { "game": games }
-col.insert_one(d)
+for g in games:
+    for s in g:
+        print("Adding position ", s)
+        d = {"position": s}
+        col.insert_one(d)
 client.close()
 print("Finished")
