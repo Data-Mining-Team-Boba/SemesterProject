@@ -6,7 +6,7 @@ start = time.time()
 
 games = []
 
-pgn = open("example.pgn")
+pgn = open("lichess_db_standard_rated_2013-01.pgn")
 while True:
     line = pgn.readline().strip()
     if line == '':
