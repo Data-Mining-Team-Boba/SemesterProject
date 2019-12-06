@@ -1,33 +1,80 @@
 import chess.pgn
 from pymongo import MongoClient
 import time
+import sys
+import concurrent.futures
+import threading
+import pickle
+import multiprocessing
 
-start = time.time()
 
-games = []
+def boardTo2dMatrix(board):
+    rows = str(board).split("\n")
 
-pgn = open("example.pgn")
-while True:
-    line = pgn.readline().strip()
-    if line == '':
-        break
-    state = []
-    game = chess.pgn.read_game(pgn)
-    board = game.board().fen()
-    state.append(board)
-    games.append(state)
+    retMatrix = []
+    for row in rows:
+        retMatrix.append(row.split())
 
-end = time.time()
-print("Time to parse:", end - start, "seconds")
+    return retMatrix
 
-print("Uploading to Mongo...")
-client = MongoClient("mongodb://34.70.135.10:27017")
-db = client["games"]
-col = db.col
-for g in games:
-    for s in g:
-        print("Adding position ", s)
-        d = {"position": s}
-        col.insert_one(d)
-client.close()
-print("Finished")
+def processPGNGame(game, i, start):
+    client = MongoClient("mongodb://localhost:27017/", maxPoolSize=None) # This is inefficient but should be fine for now... Ideally we want to do bulk uploads instead of one at a time
+    db = client["chess_data"]
+    games_collection = db["games_collection"]
+
+    # Grab the initial board state
+    board = game.board()
+    fenPositions = [board.fen()]
+    matrixPositions = [boardTo2dMatrix(board)]
+
+    # Add the position of every move
+    for move in game.mainline_moves():
+        board.push(move)
+        fenPositions.append(board.fen())
+
+        matrixPositions.append(boardTo2dMatrix(board))
+
+    # Upload the game to Mongo
+    game_data = {"game_fen_positions" : fenPositions, "game_matrix_positions": matrixPositions}
+    games_collection.insert_one(game_data)
+
+    if i % 1000 == 0:
+        print("({}) Time elapsed: {} seconds".format(i, time.time() - start), flush=True)
+    exit(0)
+    # return game_data
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print("Incorrect arguments given. Run with the format `python3 parser.py <file>`")
+        exit(-1)
+
+    sys.setrecursionlimit(2000) # Need to increase because some games are super long so pickling reaches recursion limit
+    start = time.time()
+
+    # Process pool executor for parallel computing of games
+    max_processes = multiprocessing.cpu_count()*3
+    executor = concurrent.futures.ProcessPoolExecutor(max_workers=max_processes)
+
+    fp = open(sys.argv[1])
+
+    i = 0
+    while True:
+        line = fp.readline().strip()
+        if line == '':
+            break
+        i+=1
+
+        # Read in pgn format into a game object
+        game = chess.pgn.read_game(fp)
+
+        args = {"game": game, "i": i, "start": start}
+        executor.submit(processPGNGame, **args)
+
+        # if i == 10:
+        #     break
+
+
+    end = time.time()
+    print("Time to parse:", end - start, "seconds")
+    # time.sleep(10) # Let all processes finish up before closing the file
+    fp.close()
