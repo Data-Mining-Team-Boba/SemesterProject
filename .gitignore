@@ -1,0 +1,6 @@
+.metals
+.vscode
+spark-kmeans/.bloop
+spark-kmeans/.metals
+spark-kmeans/target/
+spark-kmeans/project/
