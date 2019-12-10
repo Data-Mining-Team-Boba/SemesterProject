@@ -38,21 +38,23 @@ def processPGNGame(game, i, start):
     game_data = {"game_fen_positions" : fenPositions, "game_matrix_positions": matrixPositions}
     games_collection.insert_one(game_data)
 
-    if i % 1000 == 0:
-        print("({}) Time elapsed: {} seconds".format(i, time.time() - start), flush=True)
-    exit(0)
+    # if i % 1000 == 0:
+    print("({}) Time elapsed: {} seconds".format(i, time.time() - start), flush=True)
+    # exit(0)
     # return game_data
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
+    if len(sys.argv) < 2:
         print("Incorrect arguments given. Run with the format `python3 parser.py <file>`")
         exit(-1)
+
+    startGame = int(sys.argv[2]) if len(sys.argv) == 3 else 0
 
     sys.setrecursionlimit(2000) # Need to increase because some games are super long so pickling reaches recursion limit
     start = time.time()
 
     # Process pool executor for parallel computing of games
-    max_processes = multiprocessing.cpu_count()*3
+    max_processes = multiprocessing.cpu_count()//2
     executor = concurrent.futures.ProcessPoolExecutor(max_workers=max_processes)
 
     fp = open(sys.argv[1])
@@ -62,10 +64,13 @@ if __name__ == "__main__":
         line = fp.readline().strip()
         if line == '':
             break
-        i+=1
+       	i+=1
 
         # Read in pgn format into a game object
         game = chess.pgn.read_game(fp)
+
+        if i <= startGame:
+            continue
 
         args = {"game": game, "i": i, "start": start}
         executor.submit(processPGNGame, **args)
