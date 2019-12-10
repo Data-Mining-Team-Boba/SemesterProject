@@ -6,6 +6,8 @@ import chess
 from pymongo import MongoClient
 from collections import Counter
 
+# board = chess.Board('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR')
+
 client = MongoClient("mongodb://localhost:27017/")
 db = client["chess_data"]
 games_collection = db["games_collection"]
@@ -14,7 +16,8 @@ positions = []
 
 for game in games:
 	for position in game:
-		positions.append(position)
+		board = chess.Board(position)
+		positions.append(board)
 
 x, y = [], []
 
