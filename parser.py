@@ -99,6 +99,8 @@ if __name__ == "__main__":
             args = {"game": game, "moveStrs": re.split(" ?[0-9]+[\.]+ ", gameStr)[1:], "i": evalCount, "start": start}
             executor.submit(processPGNGame, **args)
 
+#        if i == 100:
+#            break
         if i % 1000 == 0:
             print("At {} pgn game. Eval games: {}".format(i, evalCount))
         # if i == 1000:
