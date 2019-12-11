@@ -75,8 +75,8 @@ if __name__ == "__main__":
         args = {"game": game, "i": i, "start": start}
         executor.submit(processPGNGame, **args)
 
-        # if i == 10:
-        #     break
+        if i == 100:
+            break
 
 
     end = time.time()
