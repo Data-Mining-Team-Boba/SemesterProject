@@ -1,5 +1,6 @@
 import pandas as pd
 import matplotlib.pyplot as pyplot
+import numpy as np
 from sklearn.cluster import KMeans
 import chess.pgn
 import chess
@@ -23,11 +24,18 @@ db = client["chess_data"]
 games_collection = db["games_collection"]
 games = games_collection.find()
 w, x, y, z = [], [], [], []
+game_ids = []
+position_ids = []
+was = []
+wds = []
+bas = []
+bds = []
 
 for game in games:
 	positions = []
 	wa, wd, ba, bd = [], [], [], []
 	# print(game)
+	# game_ids.append(game["_id"])
 	for position in game["game_fen_positions"]:
 		# print(position)
 		board = chess.Board(position)
@@ -92,21 +100,39 @@ for game in games:
 					# 	b_defend += len(attackers)
 					# 	print("%s => %d defenders" % (board.piece_at(square), len(attackers)))
 			
-			wa.append(w_attack)
-			wd.append(w_defend)
-			ba.append(b_attack)
-			bd.append(b_defend)
+			# wa.append(w_attack)
+			# wd.append(w_defend)
+			# ba.append(b_attack)
+			# bd.append(b_defend)
+			game_ids.append(game["_id"])
+			position_ids.append(pos_num)
+			was.append(w_attack)
+			wds.append(w_defend)
+			bas.append(b_attack)
+			bds.append(b_defend)
 		pos_num += 1
 	
-	w.append(wa)
-	x.append(wd)
-	y.append(ba)
-	z.append(bd)
+	# w.append(wa)
+	# x.append(wd)
+	# y.append(ba)
+	# z.append(bd)
 
-d = {'white attacks': w,'white defends': x, 'black sttacks': y, 'black defends': z}
-df = pd.DataFrame(d, columns=['white attacks','white defends', 'black sttacks', 'black defends'])
+
+
+# d = {'white attacks': w,'white defends': x, 'black sttacks': y, 'black defends': z}
+# df = pd.DataFrame(d, columns=['white attacks','white defends', 'black sttacks', 'black defends'])
 # print("final dataframe")
 # print(df.head())
 # print(len(df))
 
-kmeans = KMeans(n_clusters = 3).fit(df)
+d = {'game_id': game_ids, 'position_id': position_ids, 'wa': was, "wd": wds, "ba": bas, "bd": bds}
+df = pd.DataFrame(d)
+print(df.head(5))
+
+# normalize data
+kmeans = KMeans(n_clusters = 3)
+predictions = kmeans.fit_predict(np.array(df[["wa", "wd", "ba", "bd"]]))
+
+df["cluster_num"] = predictions
+
+print(df.head(10))
