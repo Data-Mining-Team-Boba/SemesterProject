@@ -3,15 +3,61 @@
 import pyspark
 from pyspark import SparkContext
 from pyspark.sql import SparkSession, Row
+from pyspark.mllib.linalg import Vectors
+from pyspark.ml.feature import VectorAssembler
 
-from numpy import array
 from math import sqrt
 import statistics
+import chess.pgn
+import chess
+import datetime
 
 from pyspark.mllib.clustering import KMeans, KMeansModel
 
-def averageCentipawnLoss(row):
-    return Row(evalAvg=statistics.mean(row["evals"]))
+def transformChessData(row):
+    positions = []
+    for position in row["game_fen_positions"]:
+        board = chess.Board(position)
+        positions.append(board)
+
+    pos_num = 0
+
+    w_attack = 0
+    w_defend = 0
+    b_attack = 0
+    b_defend = 0
+
+    for position in positions:
+        board = position
+        # check number of attacking/defending positions after both sides have played
+        for square in chess.SQUARES:
+            if (str(board.piece_at(square)) != 'None'):
+                attacked = board.attackers(chess.WHITE, square)
+                for attack in attacked:
+                    if (str(board.piece_at(attack)) != 'None'):
+                        # if a piece is white and is attacking a black piece
+                        if (board.piece_at(square).color == False):
+                            w_attack += 1
+                            # print("%s attacking %s" % (board.piece_at(attack), board.piece_at(square)))
+                        # if a piece is white and is attacking a white piece
+                        elif (board.piece_at(square).color == True):
+                            w_defend += 1
+                            # print("%s defending %s" % (board.piece_at(attack), board.piece_at(square)))
+                attacked = []
+                attacked = board.attackers(chess.BLACK, square)
+                for attack in attacked:
+                    if (str(board.piece_at(attack)) != 'None'):
+                        # if a piece is black and is attacking a white piece
+                        if (board.piece_at(square).color == True):
+                            b_attack += 1
+                            # print("%s attacking %s" % (board.piece_at(attack), board.piece_at(square)))
+                        elif (board.piece_at(square).color == False):
+                            b_defend += 1
+                            # print("%s defending %s" % (board.piece_at(attack), board.piece_at(square)))
+                attacked = []
+        pos_num += 1
+
+    return Vectors.dense(w_attack / pos_num, w_defend / pos_num, b_attack / pos_num, b_defend / pos_num, statistics.mean(row["evals"]))
 
 
 sc = SparkContext()
@@ -24,15 +70,25 @@ spark = SparkSession \
 df = spark.read.format("mongo").load()
 
 # Parse game data and generate numeric values so we can feed it into kmeans
-training = df.rdd.map(averageCentipawnLoss).toDF()
+parsedData = df.rdd.map(transformChessData)
 
-# Spark does lazy execution, so next line will actually execute the map function calls
-training.take(10) # training.collect() to run on full dataset
-
-training.printSchema()
-training.show()
 
 # Build the model (cluster the data)
+kmeans = KMeans()
+model = kmeans.train(parsedData, k=2, maxIterations=100)
+
+model.save(sc, "KMeansModel")
+for center in model.centers:
+    print(center)
+
+
+
+
+# center = model.centers
+
+# model = kmeans.fit(training)
+# print(model)
+
 # clusters = KMeans.train(parsedData, 2, maxIterations=10, initializationMode="random")
 
 # # Evaluate clustering by computing Within Set Sum of Squared Errors
