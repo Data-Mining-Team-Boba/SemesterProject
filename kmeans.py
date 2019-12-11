@@ -2,24 +2,35 @@
 
 import pyspark
 from pyspark import SparkContext
-from pyspark.sql import SparkSession
+from pyspark.sql import SparkSession, Row
 
 from numpy import array
 from math import sqrt
+import statistics
 
 from pyspark.mllib.clustering import KMeans, KMeansModel
+
+def averageCentipawnLoss(row):
+    return Row(evalAvg=statistics.mean(row["evals"]))
+
 
 sc = SparkContext()
 spark = SparkSession \
     .builder \
     .appName("ChessKMeans") \
-    .config("spark.mongodb.input.uri", "mongodb://127.0.0.1/chess_data.games_collection?readPreference=primaryPreferred") \
+    .config("spark.mongodb.input.uri", "mongodb://127.0.0.1/chess_data_3.games?readPreference=primaryPreferred") \
     .getOrCreate()
 
 df = spark.read.format("mongo").load()
 
-df.printSchema()
+# Parse game data and generate numeric values so we can feed it into kmeans
+training = df.rdd.map(averageCentipawnLoss).toDF()
 
+# Spark does lazy execution, so next line will actually execute the map function calls
+training.take(10) # training.collect() to run on full dataset
+
+training.printSchema()
+training.show()
 
 # Build the model (cluster the data)
 # clusters = KMeans.train(parsedData, 2, maxIterations=10, initializationMode="random")
