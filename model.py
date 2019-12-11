@@ -23,7 +23,6 @@ client = MongoClient("mongodb://localhost:27017/")
 db = client["chess_data"]
 games_collection = db["games_collection"]
 games = games_collection.find()
-w, x, y, z = [], [], [], []
 game_ids = []
 position_ids = []
 was = []
@@ -35,13 +34,17 @@ for game in games:
 	positions = []
 	wa, wd, ba, bd = [], [], [], []
 	# print(game)
-	# game_ids.append(game["_id"])
 	for position in game["game_fen_positions"]:
 		# print(position)
 		board = chess.Board(position)
 		positions.append(board)
 
 	pos_num = 0
+
+	w_attack = 0
+	w_defend = 0
+	b_attack = 0
+	b_defend = 0
 	
 	for position in positions:
 		# print("")
@@ -49,10 +52,10 @@ for game in games:
 		board = position
 		# check number of attacking/defending positions after both sides have played
 		if (pos_num % 2 == 0 and pos_num != 0):
-			w_attack = 0
-			w_defend = 0
-			b_attack = 0
-			b_defend = 0
+			# w_attack = 0
+			# w_defend = 0
+			# b_attack = 0
+			# b_defend = 0
 
 			for square in chess.SQUARES:
 				# print(board.piece_at(square))
@@ -68,7 +71,6 @@ for game in games:
 							elif (board.piece_at(square).color == True):
 								w_defend += 1
 								# print("%s defending %s" % (board.piece_at(attack), board.piece_at(square)))
-					attacked = []
 					attacked = board.attackers(chess.BLACK, square)
 					for attack in attacked:
 						if (str(board.piece_at(attack)) != 'None'):
@@ -79,60 +81,35 @@ for game in games:
 							elif (board.piece_at(square).color == False):
 								b_defend += 1
 								# print("%s defending %s" % (board.piece_at(attack), board.piece_at(square)))
-					attacked = []
-					# attackers = board.attackers(chess.WHITE, square)
-					# # if piece is black and the attacking piece is white
-					# if (board.piece_at(square).color == False):
-					# 	w_attack += len(attackers)
-					# 	print("%s => %d attacking" % (board.piece_at(square), len(attackers)))
-					# # if piece is white and the attacking piece is white
-					# elif (board.piece_at(square).color == True):
-					# 	w_defend += len(attackers)
-					# 	print("%s => %d defending" % (board.piece_at(square), len(attackers)))
-
-					# attackers = board.attackers(chess.BLACK, square)
-					# # if piece is white and the attacking piece is black
-					# if (board.piece_at(square).color == True):
-					# 	b_attack += len(attackers)
-					# 	print("%s => %d attackers" % (board.piece_at(square), len(attackers)))
-					# # if piece is black and the attacking piece is black
-					# elif (board.piece_at(square).color == False):
-					# 	b_defend += len(attackers)
-					# 	print("%s => %d defenders" % (board.piece_at(square), len(attackers)))
 			
-			# wa.append(w_attack)
-			# wd.append(w_defend)
-			# ba.append(b_attack)
-			# bd.append(b_defend)
-			game_ids.append(game["_id"])
-			position_ids.append(pos_num)
-			was.append(w_attack)
-			wds.append(w_defend)
-			bas.append(b_attack)
-			bds.append(b_defend)
+			# attacking / defending per game per position
+			# game_ids.append(game["_id"])
+			# position_ids.append(pos_num)
+			# was.append(w_attack)
+			# wds.append(w_defend)
+			# bas.append(b_attack)
+			# bds.append(b_defend)
 		pos_num += 1
 	
-	# w.append(wa)
-	# x.append(wd)
-	# y.append(ba)
-	# z.append(bd)
+	# average attacking / defending per game
+	game_ids.append(game["_id"])
+	was.append(w_attack / pos_num)
+	wds.append(w_defend / pos_num)
+	bas.append(b_attack / pos_num)
+	bds.append(b_defend / pos_num)
 
 
-
-# d = {'white attacks': w,'white defends': x, 'black sttacks': y, 'black defends': z}
-# df = pd.DataFrame(d, columns=['white attacks','white defends', 'black sttacks', 'black defends'])
-# print("final dataframe")
+print("final dataframe")
 # print(df.head())
 # print(len(df))
 
-d = {'game_id': game_ids, 'position_id': position_ids, 'wa': was, "wd": wds, "ba": bas, "bd": bds}
+# d = {'game_id': game_ids, 'position_id': position_ids, 'wa': was, "wd": wds, "ba": bas, "bd": bds}
+d = {'game_id': game_ids, 'wa': was, "wd": wds, "ba": bas, "bd": bds}
 df = pd.DataFrame(d)
-print(df.head(5))
+# print(df.head(5))
 
 # normalize data
-kmeans = KMeans(n_clusters = 3)
+kmeans = KMeans(n_clusters = 2)
 predictions = kmeans.fit_predict(np.array(df[["wa", "wd", "ba", "bd"]]))
-
 df["cluster_num"] = predictions
-
-print(df.head(10))
+# print(df.head(10))
