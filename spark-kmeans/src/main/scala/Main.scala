@@ -1,23 +1,36 @@
-import org.apache.spark.{SparkContext, SparkConf};
-
 import org.apache.spark.ml.clustering.KMeans
 import org.apache.spark.ml.evaluation.ClusteringEvaluator
-import org.apache.spark.sql.SQLContext
+import org.apache.spark.sql.{SQLContext, SparkSession, Row}
 
-import com.mongodb.spark.MongoSpark
+import com.mongodb.spark._
+import com.mongodb.spark.sql._
 import com.mongodb.spark.config.ReadConfig
-
 
 object Main {
   def main(args: Array[String]): Unit = {
     println("======== = = == = == = = = = = Hello, World!")
 
-    val sc = new SparkContext()
+    val spark = SparkSession.builder()
+      .appName("spark-kmeans")
+      .master("local[*]")
+      .getOrCreate()
 
-    val readConfig = ReadConfig(Map("uri" -> "mongodb://127.0.0.1/chess_data.games_collection?readPreference=primaryPreferred"))
+    // Read the data from MongoDB to a DataFrame
+    val readConfig = ReadConfig(Map("uri" -> "mongodb://127.0.0.1/", "database" -> "chess_data", "collection" -> "games_collection"))
+    val df = spark.read.mongo(readConfig)
 
-    val df = MongoSpark.load(sc, readConfig)
-    println(df.count())
+    // Drop '_id' column
+    val rowRDD = df.drop("_id").drop("game_fen_positions").rdd
+
+    // Parse rdd
+    val parsedRdd = rowRDD.map(row => {
+      println("============== = = = = = =  == HELLO WORLDIE" + row)
+
+      row
+    })
+//    val rdd = df.select("game_matrix_positions").map(ele: Row => ele)
+    parsedRdd.first()
+//    println(df.count())
 
     /*
     * Steps:
@@ -35,4 +48,5 @@ object Main {
     *   4. Calculate error based on labelled boards
     */
   }
+
 }
