@@ -18,7 +18,7 @@ def boardTo2dMatrix(board):
 
 def processPGNGame(game, moveStrs, i, start):
     client = MongoClient("mongodb://localhost:27017/", maxPoolSize=None) # This is inefficient but should be fine for now... Ideally we want to do bulk uploads instead of one at a time
-    db = client["chess_data_2"]
+    db = client["chess_data_3"]
     games_collection = db["games"]
 
     # Grab the initial board state
@@ -43,7 +43,7 @@ def processPGNGame(game, moveStrs, i, start):
             break
 
         tmp = moveStrs[idx][moveStrs[idx].find("eval")+5:].replace("#", "")
-        posEval = tmp[:tmp.find("]")]
+        posEval = float(tmp[:tmp.find("]")])
 
         fenPositions.append(board.fen())
         matrixPositions.append(boardTo2dMatrix(board))
