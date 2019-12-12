@@ -5,11 +5,6 @@
 * Using: `source <path to env>/pyspark-env/bin/activate`
 * Install packages: `pip3 install --requirement requirements.txt`
 
-## Copy to Compute Engine:
-```
-gcloud compute scp --project="chess-attack-defend-power" --zone="us-central1-a" parser.py mongo-and-api:~/
-```
-
 ## Spark installation (local)
 * NOTE: You need `java` and `scala` installed
 * Download spark from: http://spark.apache.org/downloads.html
@@ -17,7 +12,7 @@ gcloud compute scp --project="chess-attack-defend-power" --zone="us-central1-a" 
 * Install pyspark: `pip3 install pyspark`
 * Add these two lines: `vim ~/.zshrc` (replace this with ~/.bash_rc if you are using bash)
 	```
-	export SPARK_HOME="<Absolute path to untarred spark>/spark-x.x.x-bin-hadoopx.x"
+	export SPARK_HOME="<Absolute path to untarred spark>/spark-2.4.4-bin-hadoop2.7"
 	export PATH="$SPARK_HOME/bin:$PATH"
 	```
 
@@ -25,17 +20,40 @@ gcloud compute scp --project="chess-attack-defend-power" --zone="us-central1-a" 
 * Go into this directory: `<Absolute path to untarred spark>/jars`
 * Download Mongo Connector jar: `wget http://repo1.maven.org/maven2/org/mongodb/spark/mongo-spark-connector_2.11/2.4.1/mongo-spark-connector_2.11-2.4.1.jar`
 	* NOTE: This version needs to match your spark version (Ex. 2.4.x)
-* Get all these jars:
+* Get all these jars (NOTE: I believe this is all of them, but it could be missing some):
 ```
 wget https://repo1.maven.org/maven2/org/mongodb/mongodb-driver/3.8.1/mongodb-driver-3.8.1.jar
 wget https://repo1.maven.org/maven2/org/mongodb/mongodb-driver-core/3.8.1/mongodb-driver-core-3.8.1.jar
 wget https://repo1.maven.org/maven2/org/mongodb/bson/3.11.2/bson-3.11.2.jar
 ```
+* If you are missing a jar look for the `NoClassDef` line and try to install the corresponding jar file
 
+## Preprocessing
+NOTE: Make sure you have MongoDB running locally
 
-## Running Spark job
+* Run: `python3 parser.py <pgn file> <optional: starting game number>`
+
+## Building KMeans Model
+NOTE: Make sure pyspark and dependencies are installed
+
+* Run: `spark-submit kmeans.py`
+	* This will take around ~1 hour to run
+	* What this does is it takes all the data from the mongo database, converts the game data into numeric values, normalizes the feature values, then trains a kmeans model
+* The model should be saved locally as `KMeansModel` (this is a directory)
+
+## Adding Test Dataset
+NOTE: You need csv files with the format (can generate these sequences from https://lichess.org/analysis)
 ```
-spark-submit spark-kmeans_2.11-1.0.jar
+FEN,Centipawn evaluation
+FEN,Centipawn evaluation
+...
 ```
 
-<!-- Scala chess: https://github.com/ornicar/scalachess -->
+* Run: `python3 uploadLabelledCSV.py <csv file>`
+
+
+## Evaluating the model
+NOTE: You need to have a model saved and test data uploaded
+
+* Run: `spark-submit evaluate.py`
+	* Might need to change the `model-name` in the file if you didn't end up using `KMeansModel` as the name
