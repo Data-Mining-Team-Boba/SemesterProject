@@ -1,10 +1,9 @@
-## NOTE: This isn't working... Moved to scala instead because documentation was better
-
 import pyspark
 from pyspark import SparkContext
-from pyspark.sql import SparkSession, Row
+from pyspark.sql import SparkSession, Row, SQLContext
 from pyspark.mllib.linalg import Vectors
 from pyspark.ml.feature import VectorAssembler
+from pyspark.sql.types import FloatType
 
 from math import sqrt
 import statistics
@@ -12,8 +11,22 @@ import chess.pgn
 import chess
 import datetime
 
-from pyspark.mllib.clustering import KMeans, KMeansModel
+from pyspark.ml.clustering import KMeans, KMeansModel
 
+# Normalizing the column values for a given dataframe
+def normalizeData(df, columnNames):
+    mins = []
+    maxes = []
+    for colName in columnNames:
+        min_col_val = df.agg({colName: "min"}).collect()[0]["min({})".format(colName)]
+        max_col_val = df.agg({colName: "max"}).collect()[0]["max({})".format(colName)]
+
+        # normalize the column using: (x - xmin) / (xmax - xmin)
+        df = df.withColumn(colName + "_norm", ((df[colName] - min_col_val) / (max_col_val - min_col_val)))
+
+    return df
+
+# Extracting numeric values for KMeans
 def transformChessData(row):
     positions = []
     for position in row["game_fen_positions"]:
@@ -57,8 +70,9 @@ def transformChessData(row):
                 attacked = []
         pos_num += 1
 
-    return Vectors.dense(w_attack / pos_num, w_defend / pos_num, b_attack / pos_num, b_defend / pos_num, statistics.mean(row["evals"]))
-
+    # return Vectors.dense(b_attack / pos_num, b_defend / pos_num, statistics.mean(row["evals"]))
+    # return Vectors.dense(w_attack / pos_num, w_defend / pos_num, statistics.mean(row["evals"]))
+    return Row(w_attack=w_attack / pos_num, w_defend=w_defend / pos_num, b_attack=b_attack / pos_num, b_defend=b_defend / pos_num, evals=statistics.mean(row["evals"]))
 
 sc = SparkContext()
 spark = SparkSession \
@@ -67,41 +81,29 @@ spark = SparkSession \
     .config("spark.mongodb.input.uri", "mongodb://127.0.0.1/chess_data_3.games?readPreference=primaryPreferred") \
     .getOrCreate()
 
+# Load in all the mongo data from the database and collection defined
 df = spark.read.format("mongo").load()
 
 # Parse game data and generate numeric values so we can feed it into kmeans
 parsedData = df.rdd.map(transformChessData)
 
+# Convert PipelinedRDD to dataframe
+sqlContext = SQLContext(sc)
+schemaFeatures = sqlContext.createDataFrame(parsedData)
+
+# Normalize all the columns
+normalizedDF = normalizeData(schemaFeatures, ["w_attack", "w_defend", "b_attack", "b_defend", "evals"])
+# normalizedDF.show()
+
+# Combine all normalized columns into one "features" column
+assembler = VectorAssembler(inputCols=["w_attack_norm", "w_defend_norm", "b_attack_norm", "b_defend_norm", "evals_norm"], outputCol="features")
+
+training = assembler.transform(normalizedDF)
 
 # Build the model (cluster the data)
-kmeans = KMeans()
-model = kmeans.train(parsedData, k=2, maxIterations=100)
+kmeans = KMeans(k=2, maxIter=100)
+model = kmeans.fit(training)
 
-model.save(sc, "KMeansModel")
+model.save("KMeansModel_final_both_norm")
 for center in model.centers:
     print(center)
-
-
-
-
-# center = model.centers
-
-# model = kmeans.fit(training)
-# print(model)
-
-# clusters = KMeans.train(parsedData, 2, maxIterations=10, initializationMode="random")
-
-# # Evaluate clustering by computing Within Set Sum of Squared Errors
-# def error(point):
-#     center = clusters.centers[clusters.predict(point)]
-#     return sqrt(sum([x**2 for x in (point - center)]))
-
-# WSSSE = parsedData.map(lambda point: error(point)).reduce(lambda x, y: x + y)
-# print("Within Set Sum of Squared Error = " + str(WSSSE))
-
-# # Save and load model
-# clusters.save(sc, "target/org/apache/spark/ChessKMeans/KMeansModel")
-# sameModel = KMeansModel.load(sc, "target/org/apache/spark/ChessKMeans/KMeansModel")
-
-# ~/spark/spark-2.4.4-bin-hadoop2.7/bin/pyspark --conf "spark.mongodb.input.uri=mongodb://127.0.0.1/chess_data.games_collection?readPreference=primaryPreferred" --packages org.mongodb.spark:mongo-spark-connector_2.11:2.4.1
-"/home/ryan/spark/spark-2.4.4-bin-hadoop2.7"
