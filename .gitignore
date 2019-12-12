@@ -4,3 +4,4 @@ spark-kmeans/.bloop
 spark-kmeans/.metals
 spark-kmeans/target/
 spark-kmeans/project/
+spark-kmeans/.idea
