@@ -1,11 +1,11 @@
 # SemesterProject
 
-## Virtual environment
+## Virtual Environment
 * Creating: `virtualenv <path to env>/pyspark-env`
 * Using: `source <path to env>/pyspark-env/bin/activate`
 * Install packages: `pip3 install --requirement requirements.txt`
 
-## Spark installation (local)
+## Spark Installation (local)
 * NOTE: You need `java` and `scala` installed
 * Download spark from: http://spark.apache.org/downloads.html
 * Untar it
@@ -32,6 +32,13 @@ wget https://repo1.maven.org/maven2/org/mongodb/bson/3.11.2/bson-3.11.2.jar
 NOTE: Make sure you have MongoDB running locally
 
 * Run: `python3 parser.py <pgn file> <optional: starting game number>`
+
+## Attacking and Defending Feature Logic
+NOTE: Make sure you have MongoDB running locally
+
+* Run: `python3 model.py`
+	* This function was not explicitly used to build a k-means model but the logic is the same
+	* This function also contains a SKLearn function
 
 ## Building KMeans Model
 NOTE: Make sure pyspark and dependencies are installed
