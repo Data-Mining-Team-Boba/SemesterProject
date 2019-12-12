@@ -38,7 +38,6 @@ NOTE: Make sure you have MongoDB running locally
 
 * Run: `python3 model.py`
 	* This function was not explicitly used to build a k-means model but the logic is the same
-	* This function also contains a SKLearn function
 
 ## Building KMeans Model
 NOTE: Make sure pyspark and dependencies are installed
