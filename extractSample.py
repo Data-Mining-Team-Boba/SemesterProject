@@ -1,10 +1,12 @@
 import pyspark
 from pyspark import SparkContext
-from pyspark.sql import SparkSession, Row, SQLContext
+from pyspark.sql import SparkSession, Row, SQLContext, functions as F
 from pyspark.mllib.linalg import Vectors
 from pyspark.ml.clustering import KMeans, KMeansModel
 from pyspark.ml.evaluation import ClusteringEvaluator
 from pyspark.ml.feature import VectorAssembler
+import matplotlib.pyplot as plt
+import pandas as pd
 
 import statistics
 import chess.pgn
@@ -69,49 +71,49 @@ def transformChessData(row):
 
     # return Vectors.dense(b_attack / pos_num, b_defend / pos_num, statistics.mean(row["evals"]))
     # return Vectors.dense(w_attack / pos_num, w_defend / pos_num, statistics.mean(row["evals"]))
-    return Row(filename=row["filename"], label= row["label"], w_attack=w_attack / pos_num, w_defend=w_defend / pos_num, b_attack=b_attack / pos_num, b_defend=b_defend / pos_num, evals=statistics.mean(row["evals"]))
+    # return Row(filename=row["filename"], label= row["label"], w_attack=w_attack / pos_num, w_defend=w_defend / pos_num, b_attack=b_attack / pos_num, b_defend=b_defend / pos_num, evals=statistics.mean(row["evals"]))
+    return Row(w_attack=w_attack / pos_num, w_defend=w_defend / pos_num, b_attack=b_attack / pos_num, b_defend=b_defend / pos_num, evals=statistics.mean(row["evals"]))
 
 sc = SparkContext()
 
 spark = SparkSession \
     .builder \
     .appName("ChessKMeans") \
-    .config("spark.mongodb.input.uri", "mongodb://127.0.0.1/chess_testing_data.games?readPreference=primaryPreferred") \
+    .config("spark.mongodb.input.uri", "mongodb://127.0.0.1/chess_data_3.games?readPreference=primaryPreferred") \
     .getOrCreate()
 
 
-model = KMeansModel.load("KMeansModel_final_both_norm")
+df = spark.read.format("mongo").load().limit(10000)
 
-df = spark.read.format("mongo").load()
 parsedData = df.rdd.map(transformChessData)
 
-# Convert PipelinedRDD to dataframe
+
+# # Convert PipelinedRDD to dataframe
 sqlContext = SQLContext(sc)
 schemaFeatures = sqlContext.createDataFrame(parsedData)
 
-# Normalize all the columns
+# # Normalize all the columns
 normalizedDF = normalizeData(schemaFeatures, ["w_attack", "w_defend", "b_attack", "b_defend", "evals"])
 # normalizedDF.show()
 
-# Combine all normalized columns into one "features" column
-assembler = VectorAssembler(inputCols=["w_attack_norm", "w_defend_norm", "b_attack_norm", "b_defend_norm", "evals_norm"], outputCol="features")
+normalizedDF.write.save("sample.parquet", format="parquet")
+# plotDF(pdDF, 'w_attack_norm', 'w_defend_norm', (centroids[0][0], centroids[0][1]), (centroids[1][0], centroids[1][1]))
 
-testing = assembler.transform(normalizedDF)
-
-transformed = model.transform(testing).select('label', 'filename', 'w_attack_norm', 'w_defend_norm', 'b_attack_norm', 'b_defend_norm', 'evals_norm', 'prediction')
-rows = transformed.collect()
-
-df_predictions = sqlContext.createDataFrame(rows)
-df_predictions.show()
-
-for centers in model.clusterCenters():
-    print(centers)
+# pdDF.plot(kind='scatter',x='w_attack_norm',y='w_defend_norm',color='blue')
+# plt.plot(centroids[0][0], centroids[0][1], 'ro')
+# plt.annotate("Centroid 1", (centroids[0][0], centroids[0][1]))
+# plt.plot(centroids[1][0], centroids[1][1], 'ro')
+# plt.annotate("Centroid 2", (centroids[1][0], centroids[1][1]))
+# plt.savefig("w_attackVSw_defend.png")
 
 
-# 0 is attack
-# 1 is defend becasue higher defense counts and higher attack counts
+# assembler = VectorAssembler(inputCols=["w_attack_norm", "w_defend_norm", "b_attack_norm", "b_defend_norm", "evals_norm"], outputCol="features")
 
-#     Predicted_D     Predicted_A
-# True_D  3               2
+# testing = assembler.transform(normalizedDF)
 
-# True_A  2               3
+# transformed = model.transform(testing).select('w_attack_norm', 'w_defend_norm', 'b_attack_norm', 'b_defend_norm', 'evals_norm', 'prediction')
+# rows = transformed.collect()
+
+# df_predictions = sqlContext.createDataFrame(rows)
+# df_predictions.show()
+
